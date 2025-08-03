@@ -290,27 +290,19 @@
             });
         }
 
-        // --- CSV DATA ---
-        const csvData = `Place Name,Category,Latitude,Longitude,Description
-River Market,District,34.7523,-92.2713,"A vibrant market district with food stalls, shops, and entertainment."
-Pinnacle Mountain State Park,Park,34.8415,-92.4799,"A popular park for hiking with stunning views from the summit."
-Big Dam Bridge,Landmark,34.8159,-92.3792,"North America's longest pedestrian and bicycle bridge."
-Arkansas State Capitol,Government,34.7465,-92.2896,"A smaller-scale replica of the U.S. Capitol building."
-Little Rock Central High School,Historic Site,34.7362,-92.3020,"A key site from the American Civil Rights Movement."
-Museum of Discovery,Museum,34.7501,-92.2721,"An interactive science and history museum for all ages."
-`;
+       
+    // --- PARSE AND PLOT CSV DATA ---
+const markers = L.markerClusterGroup();
 
-        // --- PARSE AND PLOT CSV DATA ---
-        const markers = L.markerClusterGroup();
-
-        Papa.parse(csvData, {
-            header: true,
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                plotData(results.data);
-            }
-        });
+Papa.parse("locations.csv", { // <-- Change "locations.csv" to your file's name
+    download: true, // This is the important part that fetches the file
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+        plotData(results.data);
+    }
+});
 
         function plotData(data) {
             data.forEach(location => {
