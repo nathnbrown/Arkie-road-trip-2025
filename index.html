@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Location Map</title>
+    
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+    <!-- Leaflet.markercluster plugin CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <!-- Font Awesome for custom icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- PapaParse library for parsing CSV data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <style>
+        /* Basic styling for the page */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        /* Map container takes up the full screen */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* NEW: Floating sidebar with no background */
+        #sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000; /* Ensure it's on top of the map */
+            /* All background/panel styles are removed */
+        }
+        #sidebar h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: white; /* Changed for visibility */
+            text-shadow: 0 1px 4px rgba(0,0,0,0.7); /* Added for readability */
+            -webkit-font-smoothing: antialiased; /* Improves text rendering */
+        }
+        #category-filter {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #category-filter li {
+            margin-bottom: 0.75rem;
+        }
+        #category-filter label {
+            cursor: pointer;
+            font-size: 1rem; /* Slightly larger for readability */
+            color: white; /* Changed for visibility */
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6); /* Added for readability */
+            display: flex;
+            align-items: center;
+            -webkit-font-smoothing: antialiased; /* Improves text rendering */
+        }
+        #category-filter input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Custom popup styling */
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .leaflet-popup-content { margin: 15px; font-size: 14px; line-height: 1.6; }
+        .leaflet-popup-content h3 { margin: 0 0 10px; font-size: 16px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .leaflet-popup-content p { margin: 5px 0; }
+        .navigate-button { display: inline-block; margin-top: 10px; padding: 8px 12px; background-color: #007bff; color: #ffffff; text-align: center; text-decoration: none; border-radius: 5px; font-weight: 500; }
+
+        /* Custom DivIcon styling */
+        .custom-div-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid white; }
+        
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <div id="sidebar">
+        <h2>Categories</h2>
+        <ul id="category-filter">
+            <!-- Category filters will be dynamically inserted here -->
+        </ul>
+    </div>
+
+    <!-- Leaflet.js JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+     
+    <!-- Leaflet.markercluster plugin JavaScript -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        let userLat = null;
+        let userLng = null;
+        const allMarkers = {}; // Object to hold markers, keyed by category
+
+        // --- BASEMAPS ---
+        const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+        const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap' });
+        const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+        const baseMaps = { "Streets": streets, "Topographic": topo, "Dark": dark };
+
+        // --- MAP INITIALIZATION ---
+        const map = L.map('map', { layers: [streets] }).setView([34.7465, -92.2896], 13);
+        L.control.layers(baseMaps).addTo(map);
+        const markerClusterGroup = L.markerClusterGroup();
+        map.addLayer(markerClusterGroup);
+
+        // --- GEOLOCATION ---
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLat = position.coords.latitude;
+                    userLng = position.coords.longitude;
+                    L.marker([userLat, userLng]).addTo(map).bindPopup("<b>You are here!</b>").openPopup();
+                    map.setView([userLat, userLng], 14);
+                },
+                (error) => console.error(`Geolocation Error: ${error.message}`)
+            );
+        }
+
+        // --- ICONS ---
+        function getCategoryIcon(category) {
+            const iconDetails = {
+                'District': { icon: 'fa-building', color: '#4a90e2' },
+                'Park': { icon: 'fa-tree', color: '#7ed321' },
+                'Landmark': { icon: 'fa-monument', color: '#f5a623' },
+                'Government': { icon: 'fa-landmark', color: '#9b9b9b' },
+                'Historic Site': { icon: 'fa-landmark-dome', color: '#8b572a' },
+                'Museum': { icon: 'fa-palette', color: '#bd10e0' },
+                'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
+            };
+            const details = iconDetails[category] || iconDetails['Default'];
+            return L.divIcon({
+                html: `<div class="custom-div-icon" style="background-color:${details.color};"><i class="fa-solid ${details.icon}"></i></div>`,
+                className: '', // Leaflet adds its own class, so we leave this empty
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+        }
+
+        // --- CSV DATA & PROCESSING ---
+        const csvData = `Place_Name,Category,Latitude,Longitude,Description
+River Market,District,34.7523,-92.2713,"A vibrant market district with food stalls, shops, and entertainment."
+Pinnacle Mountain State Park,Park,34.8415,-92.4799,"A popular park for hiking with stunning views from the summit."
+Big Dam Bridge,Landmark,34.8159,-92.3792,"North America's longest pedestrian and bicycle bridge."
+Arkansas State Capitol,Government,34.7465,-92.2896,"A smaller-scale replica of the U.S. Capitol building."
+Little Rock Central High School,Historic Site,34.7362,-92.3020,"A key site from the American Civil Rights Movement."
+Museum of Discovery,Museum,34.7501,-92.2721,"An interactive science and history museum for all ages."
+`;
+
+        Papa.parse(csvData, {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                processData(results.data);
+            }
+        });
+
+        function processData(data) {
+            const categories = new Set();
+            data.forEach(location => {
+                if (location.Category) {
+                    categories.add(location.Category);
+                }
+                
+                if (location.Latitude && location.Longitude && location.Place_Name) {
+                    const marker = L.marker([location.Latitude, location.Longitude], {
+                        icon: getCategoryIcon(location.Category)
+                    });
+
+                    let navLink = userLat && userLng
+                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${location.Latitude},${location.Longitude}`
+                        : `https://www.google.com/maps/search/?api=1&query=${location.Latitude},${location.Longitude}`;
+                    
+                    const popupContent = `
+                        <h3>${location.Place_Name}</h3>
+                        <p><strong>Category:</strong> ${location.Category}</p>
+                        <p>${location.Description}</p>
+                        <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
+                    `;
+                    marker.bindPopup(popupContent);
+
+                    if (!allMarkers[location.Category]) {
+                        allMarkers[location.Category] = [];
+                    }
+                    allMarkers[location.Category].push(marker);
+                }
+            });
+
+            populateFilterControls(categories);
+            updateMapLayers();
+        }
+
+        function populateFilterControls(categories) {
+            const filterContainer = document.getElementById('category-filter');
+            categories.forEach(category => {
+                const item = document.createElement('li');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `filter-${category}`;
+                checkbox.setAttribute('data-category', category);
+                checkbox.checked = true;
+
+                const label = document.createElement('label');
+                label.htmlFor = `filter-${category}`;
+                label.textContent = category;
+                
+                label.prepend(checkbox);
+                item.appendChild(label);
+                filterContainer.appendChild(item);
+
+                checkbox.addEventListener('change', updateMapLayers);
+            });
+        }
+
+        function updateMapLayers() {
+            markerClusterGroup.clearLayers();
+            const checkedCategories = document.querySelectorAll('#category-filter input[type="checkbox"]:checked');
+            
+            checkedCategories.forEach(checkbox => {
+                const category = checkbox.getAttribute('data-category');
+                if (allMarkers[category]) {
+                    markerClusterGroup.addLayers(allMarkers[category]);
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
