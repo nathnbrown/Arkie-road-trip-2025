@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Location Map</title>
     
-    <!-- Leaflet.js CSS for map styling -->
+    <!-- Leaflet.js CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
      crossorigin=""/>
@@ -13,6 +13,9 @@
     <!-- Leaflet.markercluster plugin CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <!-- Font Awesome for custom icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <!-- PapaParse library for parsing CSV data -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -23,122 +26,105 @@
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background-color: #f0f2f5;
+            overflow: hidden; /* Prevent body scroll */
         }
 
-        /* Header styling */
-        .header {
-            background-color: #ffffff;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e0e0e0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            z-index: 1001; /* Ensure header is above other elements */
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            color: #333;
-        }
-
-        /* Status message styling */
-        .status-message {
-            padding: 0.75rem 2rem;
-            background-color: #fffbe6;
-            color: #8a6d3b;
-            text-align: center;
-            font-size: 0.9rem;
-            display: none; /* Hidden by default */
-            border-bottom: 1px solid #ffeeba;
-        }
-
-        /* Map container styling */
         #map {
-            height: 100%; /* Take remaining height */
-            width: 100%;
-        }
-        
-        /* Custom popup styling for a modern look */
-        .leaflet-popup-content-wrapper {
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .leaflet-popup-content {
-            margin: 15px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        .leaflet-popup-content h3 {
-            margin: 0 0 10px;
-            font-size: 16px;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-        }
-        .leaflet-popup-content p {
-            margin: 5px 0;
-        }
-        .leaflet-popup-tip-container {
-            width: 40px;
-            height: 20px;
-        }
-        .navigate-button {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 8px 12px;
-            background-color: #007bff;
-            color: #ffffff;
-            text-align: center;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: 500;
-        }
-
-        /* Modal styling for permissions error */
-        .modal-overlay {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.6);
-            display: none; /* Hidden by default */
+        }
+
+        /* NEW: Collapsible Sidebar Panel */
+        #sidebar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 3px 0 15px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transform: translateX(-100%); /* Hidden by default */
+            transition: transform 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar.open {
+            transform: translateX(0);
+        }
+        #sidebar-content {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        #sidebar h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            color: #333;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+        }
+        #category-filter {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #category-filter li {
+            margin-bottom: 0.75rem;
+        }
+        #category-filter label {
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        #category-filter input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* NEW: Toggle Button for Sidebar */
+        #sidebar-toggle {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 50px;
+            height: 50px;
+            background-color: #fff;
+            color: #333;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 1002; /* Above sidebar */
+            display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 2000;
+            transition: transform 0.2s;
         }
-        .modal-content {
-            background-color: #ffffff;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
+        #sidebar-toggle:hover {
+            transform: scale(1.1);
         }
-        .modal-content h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        .modal-content p {
-            color: #555;
-        }
-        .modal-content button {
-            margin-top: 1rem;
-            padding: 10px 20px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .modal-content button:hover {
-            background-color: #0056b3;
-        }
+
+        /* Custom popup styling */
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .leaflet-popup-content { margin: 15px; font-size: 14px; line-height: 1.6; }
+        .leaflet-popup-content h3 { margin: 0 0 10px; font-size: 16px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .leaflet-popup-content p { margin: 5px 0; }
+        .navigate-button { display: inline-block; margin-top: 10px; padding: 8px 12px; background-color: #007bff; color: #ffffff; text-align: center; text-decoration: none; border-radius: 5px; font-weight: 500; }
+
+        /* Custom DivIcon styling */
+        .custom-div-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid white; }
+        
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,23 +132,20 @@
 </head>
 <body>
 
-    <div class="header">
-        <h1>Atlas Arkansas</h1>
-    </div>
-    
-    <div id="status-message" class="status-message"></div>
-
     <div id="map"></div>
 
-    <!-- Modal for explaining permissions policy error -->
-    <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Geolocation Disabled</h3>
-            <p>This interactive preview has geolocation disabled by its security policy. This is a feature of the environment, not a bug in the code.</p>
-            <p>The user location feature will work correctly when you publish this file on your live website.</p>
-            <button id="modal-close-button">Understood</button>
+    <div id="sidebar">
+        <div id="sidebar-content">
+            <h2>Categories</h2>
+            <ul id="category-filter">
+                <!-- Category filters will be dynamically inserted here -->
+            </ul>
         </div>
     </div>
+
+    <button id="sidebar-toggle">
+        <i class="fa-solid fa-layer-group"></i>
+    </button>
 
     <!-- Leaflet.js JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -173,41 +156,21 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
     <script>
-        const statusMessage = document.getElementById('status-message');
-        const modalOverlay = document.getElementById('modal-overlay');
-        const modalCloseButton = document.getElementById('modal-close-button');
         let userLat = null;
         let userLng = null;
+        const allMarkers = {}; // Object to hold markers, keyed by category
 
         // --- BASEMAPS ---
-        const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        });
-
-        const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        	maxZoom: 17,
-        	attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-        });
-        
-        const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        	subdomains: 'abcd',
-        	maxZoom: 19
-        });
-
-        const baseMaps = {
-            "Streets": streets,
-            "Topographic": topo,
-            "Dark": dark
-        };
+        const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+        const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap' });
+        const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+        const baseMaps = { "Streets": streets, "Topographic": topo, "Dark": dark };
 
         // --- MAP INITIALIZATION ---
-        const map = L.map('map', {
-            layers: [streets] // Set default layer
-        }).setView([34.7465, -92.2896], 13);
-
+        const map = L.map('map', { layers: [streets] }).setView([34.7465, -92.2896], 13);
         L.control.layers(baseMaps).addTo(map);
+        const markerClusterGroup = L.markerClusterGroup();
+        map.addLayer(markerClusterGroup);
 
         // --- GEOLOCATION ---
         if (navigator.geolocation) {
@@ -215,125 +178,152 @@
                 (position) => {
                     userLat = position.coords.latitude;
                     userLng = position.coords.longitude;
-
-                    const userIcon = L.icon({
-                        iconUrl: 'https://placehold.co/32x32/3498db/ffffff?text=YOU',
-                        iconSize: [32, 32],
-                        iconAnchor: [16, 32],
-                        popupAnchor: [0, -32]
-                    });
-
-                    L.marker([userLat, userLng], { icon: userIcon }).addTo(map)
-                        .bindPopup("<b>You are here!</b>").openPopup();
+                    L.marker([userLat, userLng]).addTo(map).bindPopup("<b>You are here!</b>").openPopup();
                     map.setView([userLat, userLng], 14);
                 },
-                (error) => {
-                    // Handle geolocation errors with more specific user feedback.
-                    console.error(`Error getting user location (Code: ${error.code}): ${error.message}`);
-                    let userMessage = "Could not retrieve your location. ";
-                    
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            if (error.message && error.message.toLowerCase().includes("permissions policy")) {
-                                modalOverlay.style.display = 'flex';
-                            } else {
-                                userMessage += "Please enable location permissions in your browser to see your position.";
-                                statusMessage.textContent = userMessage;
-                                statusMessage.style.display = 'block';
-                            }
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            userMessage += "Location information is currently unavailable.";
-                            statusMessage.textContent = userMessage;
-                            statusMessage.style.display = 'block';
-                            break;
-                        case error.TIMEOUT:
-                            userMessage += "The request to get your location timed out.";
-                            statusMessage.textContent = userMessage;
-                            statusMessage.style.display = 'block';
-                            break;
-                        default:
-                            userMessage += "An unknown error occurred.";
-                            statusMessage.textContent = userMessage;
-                            statusMessage.style.display = 'block';
-                            break;
-                    }
-                }
+                (error) => console.error(`Geolocation Error: ${error.message}`)
             );
-        } else {
-            statusMessage.textContent = "Geolocation is not supported by this browser.";
-            statusMessage.style.display = 'block';
         }
-
-        // --- MODAL CLOSE ---
-        modalCloseButton.addEventListener('click', () => {
-            modalOverlay.style.display = 'none';
-        });
 
         // --- ICONS ---
         function getCategoryIcon(category) {
             const iconDetails = {
-                'District': { color: '4a90e2', text: 'D' },
-                'Park': { color: '7ed321', text: 'P' },
-                'Landmark': { color: 'f5a623', text: 'L' },
-                'Government': { color: '9b9b9b', text: 'G' },
-                'Historic Site': { color: '8b572a', text: 'H' },
-                'Museum': { color: 'bd10e0', text: 'M' },
-                'Default': { color: '4a4a4a', text: '•' }
+                'Peaks': { icon: 'fa-mountain-sun', color: '#8B4513' },
+                'Roadside': { icon: 'fa-road', color: '#6c757d' },
+                'Historical Markers': { icon: 'fa-monument', color: '#8b572a' },
+                'Waterfalls': { icon: 'fa-water', color: '#17a2b8' },
+                'Film site': { icon: 'fa-film', color: '#343a40' },
+                'Famous People': { icon: 'fa-star', color: '#ffc107' },
+                'Nature': { icon: 'fa-leaf', color: '#28a745' },
+                'Haunted': { icon: 'fa-ghost', color: '#6f42c1' },
+                'Legends': { icon: 'fa-dragon', color: '#dc3545' },
+                'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
             };
             const details = iconDetails[category] || iconDetails['Default'];
-            return L.icon({
-                iconUrl: `https://placehold.co/38x38/${details.color}/ffffff?text=${details.text}&font=roboto`,
-                iconSize: [38, 38],
-                iconAnchor: [19, 38],
-                popupAnchor: [0, -38]
+            return L.divIcon({
+                html: `<div class="custom-div-icon" style="background-color:${details.color};"><i class="fa-solid ${details.icon}"></i></div>`,
+                className: '',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
             });
         }
 
-       
-    // --- PARSE AND PLOT CSV DATA ---
-const markers = L.markerClusterGroup();
+        // --- CSV DATA & PROCESSING ---
+        // IMPORTANT: The CSV header for the place's name must be "Place_Name" (with an underscore)
+        // to prevent parsing issues and ensure the popup title works correctly.
+        Papa.parse("locations.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // If the external file fails, use the sample data as a fallback
+                if (results.data && results.data.length > 0) {
+                    processData(results.data);
+                } else {
+                    console.warn("External CSV failed to load or was empty. Using sample data.");
+                    const sampleData = `Place_Name,Category,Latitude,Longitude,Description
+Pinnacle Mountain,Peaks,34.8415,-92.4799,"A popular park for hiking with stunning views from the summit."
+Route 66 Marker,Roadside,35.1054,-93.8423,"A classic stop along the historic Mother Road."
+Old State House,Historical Markers,34.7495,-92.2731,"The oldest surviving state capitol west of the Mississippi River."
+Cedar Falls,Waterfalls,35.0998,-92.7985,"A beautiful 95-foot waterfall in Petit Jean State Park."
+Gone with the Wind Mill,Film site,34.7447,-92.2880,"The iconic mill from the opening credits of the classic film."
+Johnny Cash Boyhood Home,Famous People,35.6033,-90.3409,"The restored home where the Man in Black grew up."
+Buffalo National River,Nature,36.0465,-93.3649,"America's first National River, offering canoeing and hiking."
+The Crescent Hotel,Haunted,36.4042,-93.7405,"Known as America's Most Haunted Hotel."
+Gurdon Light,Legends,33.9218,-93.1532,"A mysterious floating light that has puzzled people for decades."
+`;
+                    Papa.parse(sampleData, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        complete: function(sampleResults) {
+                            processData(sampleResults.data);
+                        }
+                    });
+                }
+            },
+            error: function(error) {
+                console.error("Error loading or parsing CSV file:", error);
+                alert("Could not load the locations data. Please check the file path and format.");
+            }
+        });
 
-Papa.parse("locations.csv", { // <-- Change "locations.csv" to your file's name
-    download: true, // This is the important part that fetches the file
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-        plotData(results.data);
-    }
-});
-
-        function plotData(data) {
+        function processData(data) {
+            const categories = new Set();
             data.forEach(location => {
-                if (location.Latitude && location.Longitude) {
+                if (location.Category) {
+                    categories.add(location.Category);
+                }
+                
+                if (location.Latitude && location.Longitude && location.Place_Name) {
                     const marker = L.marker([location.Latitude, location.Longitude], {
                         icon: getCategoryIcon(location.Category)
                     });
 
-                    // --- Navigation Link ---
-                    let navLink;
-                    if (userLat && userLng) {
-                        // If user location is available, create a directions link
-                        navLink = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${location.Latitude},${location.Longitude}`;
-                    } else {
-                        // Otherwise, just link to the location on the map
-                        navLink = `https://www.google.com/maps/search/?api=1&query=${location.Latitude},${location.Longitude}`;
-                    }
-
+                    let navLink = userLat && userLng
+                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${location.Latitude},${location.Longitude}`
+                        : `https://www.google.com/maps/search/?api=1&query=${location.Latitude},${location.Longitude}`;
+                    
                     const popupContent = `
-                        <h3>${location['Place Name']}</h3>
+                        <h3>${location.Place_Name}</h3>
                         <p><strong>Category:</strong> ${location.Category}</p>
                         <p>${location.Description}</p>
                         <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
                     `;
-
                     marker.bindPopup(popupContent);
-                    markers.addLayer(marker);
+
+                    if (!allMarkers[location.Category]) {
+                        allMarkers[location.Category] = [];
+                    }
+                    allMarkers[location.Category].push(marker);
                 }
             });
-            map.addLayer(markers);
+
+            populateFilterControls(categories);
+            updateMapLayers();
         }
+
+        function populateFilterControls(categories) {
+            const filterContainer = document.getElementById('category-filter');
+            filterContainer.innerHTML = ''; // Clear existing filters
+            const sortedCategories = Array.from(categories).sort(); // Sort categories alphabetically
+            sortedCategories.forEach(category => {
+                const item = document.createElement('li');
+                item.innerHTML = `
+                    <label>
+                        <input type="checkbox" data-category="${category}" checked>
+                        ${category}
+                    </label>
+                `;
+                filterContainer.appendChild(item);
+            });
+            // Add event listeners after populating
+            document.querySelectorAll('#category-filter input').forEach(checkbox => {
+                checkbox.addEventListener('change', updateMapLayers);
+            });
+        }
+
+        function updateMapLayers() {
+            markerClusterGroup.clearLayers();
+            const checkedCategories = document.querySelectorAll('#category-filter input[type="checkbox"]:checked');
+            
+            checkedCategories.forEach(checkbox => {
+                const category = checkbox.getAttribute('data-category');
+                if (allMarkers[category]) {
+                    markerClusterGroup.addLayers(allMarkers[category]);
+                }
+            });
+        }
+
+        // --- SIDEBAR TOGGLE LOGIC ---
+        const sidebar = document.getElementById('sidebar');
+        const toggleButton = document.getElementById('sidebar-toggle');
+
+        toggleButton.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+
     </script>
 </body>
 </html>
