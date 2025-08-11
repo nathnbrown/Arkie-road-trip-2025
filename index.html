@@ -209,16 +209,17 @@
         }
 
         // --- CSV DATA & PROCESSING ---
-        const sampleData = `Place_Name,Category,Latitude,Longitude,Description
-Pinnacle Mountain,Peaks,34.8415,-92.4799,"A popular park for hiking with stunning views from the summit."
-Route 66 Marker,Roadside,35.1054,-93.8423,"A classic stop along the historic Mother Road."
-Old State House,Historical Markers,34.7495,-92.2731,"The oldest surviving state capitol west of the Mississippi River."
-Cedar Falls,Waterfalls,35.0998,-92.7985,"A beautiful 95-foot waterfall in Petit Jean State Park."
-Gone with the Wind Mill,Film site,34.7447,-92.2880,"The iconic mill from the opening credits of the classic film."
-Johnny Cash Boyhood Home,Famous People,35.6033,-90.3409,"The restored home where the Man in Black grew up."
-Buffalo National River,Nature,36.0465,-93.3649,"America's first National River, offering canoeing and hiking."
-The Crescent Hotel,Haunted,36.4042,-93.7405,"Known as America's Most Haunted Hotel."
-Gurdon Light,Legends,33.9218,-93.1532,"A mysterious floating light that has puzzled people for decades."
+        // Updated sample data to match the user's new headers
+        const sampleData = `name,latitude,longitude,category,description
+Pinnacle Mountain,34.8415,-92.4799,Peaks,"A popular park for hiking with stunning views from the summit."
+Route 66 Marker,35.1054,-93.8423,Roadside,"A classic stop along the historic Mother Road."
+Old State House,34.7495,-92.2731,Historical Markers,"The oldest surviving state capitol west of the Mississippi River."
+Cedar Falls,35.0998,-92.7985,Waterfalls,"A beautiful 95-foot waterfall in Petit Jean State Park."
+Gone with the Wind Mill,34.7447,-92.2880,Film site,"The iconic mill from the opening credits of the classic film."
+Johnny Cash Boyhood Home,35.6033,-90.3409,Famous People,"The restored home where the Man in Black grew up."
+Buffalo National River,36.0465,-93.3649,Nature,"America's first National River, offering canoeing and hiking."
+The Crescent Hotel,36.4042,-93.7405,Haunted,"Known as America's Most Haunted Hotel."
+Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzzled people for decades."
 `;
 
         function loadSampleData() {
@@ -255,35 +256,38 @@ Gurdon Light,Legends,33.9218,-93.1532,"A mysterious floating light that has puzz
         function processData(data) {
             const categories = new Set();
             data.forEach(location => {
-                // FIX: Robustly get the place name, checking for both underscore and space.
-                const placeName = location.Place_Name || location['Place Name'];
+                // Use the new headers from the user's file
+                const placeName = location.name;
+                const lat = location.latitude;
+                const lon = location.longitude;
+                const cat = location.category;
+                const desc = location.description;
 
-                if (location.Category) {
-                    categories.add(location.Category);
+                if (cat) {
+                    categories.add(cat);
                 }
                 
-                // Use the robust placeName variable in the check
-                if (location.Latitude && location.Longitude && placeName) {
-                    const marker = L.marker([location.Latitude, location.Longitude], {
-                        icon: getCategoryIcon(location.Category)
+                if (lat && lon && placeName) {
+                    const marker = L.marker([lat, lon], {
+                        icon: getCategoryIcon(cat)
                     });
 
                     let navLink = userLat && userLng
-                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${location.Latitude},${location.Longitude}`
-                        : `https://www.google.com/maps/search/?api=1&query=${location.Latitude},${location.Longitude}`;
+                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
+                        : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
                     
                     const popupContent = `
                         <h3>${placeName}</h3>
-                        <p><strong>Category:</strong> ${location.Category}</p>
-                        <p>${location.Description}</p>
+                        <p><strong>Category:</strong> ${cat}</p>
+                        <p>${desc}</p>
                         <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
                     `;
                     marker.bindPopup(popupContent);
 
-                    if (!allMarkers[location.Category]) {
-                        allMarkers[location.Category] = [];
+                    if (!allMarkers[cat]) {
+                        allMarkers[cat] = [];
                     }
-                    allMarkers[location.Category].push(marker);
+                    allMarkers[cat].push(marker);
                 }
             });
 
