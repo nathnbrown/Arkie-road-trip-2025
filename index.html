@@ -209,31 +209,6 @@
         }
 
         // --- CSV DATA & PROCESSING ---
-        // Updated sample data to match the user's new headers
-        const sampleData = `name,latitude,longitude,category,description
-Pinnacle Mountain,34.8415,-92.4799,Peaks,"A popular park for hiking with stunning views from the summit."
-Route 66 Marker,35.1054,-93.8423,Roadside,"A classic stop along the historic Mother Road."
-Old State House,34.7495,-92.2731,Historical Markers,"The oldest surviving state capitol west of the Mississippi River."
-Cedar Falls,35.0998,-92.7985,Waterfalls,"A beautiful 95-foot waterfall in Petit Jean State Park."
-Gone with the Wind Mill,34.7447,-92.2880,Film site,"The iconic mill from the opening credits of the classic film."
-Johnny Cash Boyhood Home,35.6033,-90.3409,Famous People,"The restored home where the Man in Black grew up."
-Buffalo National River,36.0465,-93.3649,Nature,"America's first National River, offering canoeing and hiking."
-The Crescent Hotel,36.4042,-93.7405,Haunted,"Known as America's Most Haunted Hotel."
-Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzzled people for decades."
-`;
-
-        function loadSampleData() {
-            console.warn("Using sample data as a fallback.");
-            Papa.parse(sampleData, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(sampleResults) {
-                    processData(sampleResults.data);
-                }
-            });
-        }
-
         Papa.parse("locations.csv", {
             download: true,
             header: true,
@@ -243,20 +218,20 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
                 if (results.data && results.data.length > 0) {
                     processData(results.data);
                 } else {
-                    console.warn("External CSV was empty or invalid.");
-                    loadSampleData();
+                    console.error("Could not load or parse locations.csv. Please check the file path, format, and headers.");
+                    alert("Error: Could not load location data.");
                 }
             },
             error: function(error) {
                 console.error("Error loading external CSV file:", error);
-                loadSampleData();
+                alert("Error fetching location data file.");
             }
         });
 
         function processData(data) {
             const categories = new Set();
             data.forEach(location => {
-                // Use the new headers from the user's file
+                // Use the headers from the user's file
                 const placeName = location.name;
                 const lat = location.latitude;
                 const lon = location.longitude;
@@ -292,7 +267,7 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
             });
 
             populateFilterControls(categories);
-            updateMapLayers();
+            // Don't call updateMapLayers() here, so the map starts empty
         }
 
         function populateFilterControls(categories) {
@@ -303,7 +278,7 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
                 const item = document.createElement('li');
                 item.innerHTML = `
                     <label>
-                        <input type="checkbox" data-category="${category}" checked>
+                        <input type="checkbox" data-category="${category}">
                         ${category}
                     </label>
                 `;
