@@ -37,7 +37,7 @@
             height: 100%;
         }
 
-        /* NEW: Collapsible Sidebar Panel */
+        /* Collapsible Sidebar Panel */
         #sidebar {
             position: absolute;
             top: 0;
@@ -91,7 +91,7 @@
             height: 18px;
         }
 
-        /* NEW: Toggle Button for Sidebar */
+        /* Toggle Button for Sidebar */
         #sidebar-toggle {
             position: absolute;
             bottom: 30px;
@@ -209,20 +209,7 @@
         }
 
         // --- CSV DATA & PROCESSING ---
-        // IMPORTANT: The CSV header for the place's name must be "Place_Name" (with an underscore)
-        // to prevent parsing issues and ensure the popup title works correctly.
-        Papa.parse("locations.csv", {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                // If the external file fails, use the sample data as a fallback
-                if (results.data && results.data.length > 0) {
-                    processData(results.data);
-                } else {
-                    console.warn("External CSV failed to load or was empty. Using sample data.");
-                    const sampleData = `Place_Name,Category,Latitude,Longitude,Description
+        const sampleData = `Place_Name,Category,Latitude,Longitude,Description
 Pinnacle Mountain,Peaks,34.8415,-92.4799,"A popular park for hiking with stunning views from the summit."
 Route 66 Marker,Roadside,35.1054,-93.8423,"A classic stop along the historic Mother Road."
 Old State House,Historical Markers,34.7495,-92.2731,"The oldest surviving state capitol west of the Mississippi River."
@@ -233,30 +220,50 @@ Buffalo National River,Nature,36.0465,-93.3649,"America's first National River, 
 The Crescent Hotel,Haunted,36.4042,-93.7405,"Known as America's Most Haunted Hotel."
 Gurdon Light,Legends,33.9218,-93.1532,"A mysterious floating light that has puzzled people for decades."
 `;
-                    Papa.parse(sampleData, {
-                        header: true,
-                        dynamicTyping: true,
-                        skipEmptyLines: true,
-                        complete: function(sampleResults) {
-                            processData(sampleResults.data);
-                        }
-                    });
+
+        function loadSampleData() {
+            console.warn("Using sample data as a fallback.");
+            Papa.parse(sampleData, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(sampleResults) {
+                    processData(sampleResults.data);
+                }
+            });
+        }
+
+        Papa.parse("locations.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    processData(results.data);
+                } else {
+                    console.warn("External CSV was empty or invalid.");
+                    loadSampleData();
                 }
             },
             error: function(error) {
-                console.error("Error loading or parsing CSV file:", error);
-                alert("Could not load the locations data. Please check the file path and format.");
+                console.error("Error loading external CSV file:", error);
+                loadSampleData();
             }
         });
 
         function processData(data) {
             const categories = new Set();
             data.forEach(location => {
+                // FIX: Robustly get the place name, checking for both underscore and space.
+                const placeName = location.Place_Name || location['Place Name'];
+
                 if (location.Category) {
                     categories.add(location.Category);
                 }
                 
-                if (location.Latitude && location.Longitude && location.Place_Name) {
+                // Use the robust placeName variable in the check
+                if (location.Latitude && location.Longitude && placeName) {
                     const marker = L.marker([location.Latitude, location.Longitude], {
                         icon: getCategoryIcon(location.Category)
                     });
@@ -266,7 +273,7 @@ Gurdon Light,Legends,33.9218,-93.1532,"A mysterious floating light that has puzz
                         : `https://www.google.com/maps/search/?api=1&query=${location.Latitude},${location.Longitude}`;
                     
                     const popupContent = `
-                        <h3>${location.Place_Name}</h3>
+                        <h3>${placeName}</h3>
                         <p><strong>Category:</strong> ${location.Category}</p>
                         <p>${location.Description}</p>
                         <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
