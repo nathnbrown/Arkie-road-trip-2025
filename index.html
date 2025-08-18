@@ -91,11 +91,9 @@
             height: 18px;
         }
 
-        /* Toggle Button for Sidebar */
-        #sidebar-toggle {
+        /* Control Buttons Styling */
+        .map-control-button {
             position: absolute;
-            bottom: 30px;
-            left: 30px;
             width: 50px;
             height: 50px;
             background-color: #fff;
@@ -105,14 +103,24 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             font-size: 1.5rem;
             cursor: pointer;
-            z-index: 1002; /* Above sidebar */
+            z-index: 1002;
             display: flex;
             justify-content: center;
             align-items: center;
             transition: transform 0.2s;
         }
-        #sidebar-toggle:hover {
+        .map-control-button:hover {
             transform: scale(1.1);
+        }
+        
+        #sidebar-toggle {
+            bottom: 30px;
+            left: 30px;
+        }
+        
+        #locate-me-btn {
+            bottom: 30px;
+            right: 30px;
         }
 
         /* Custom popup styling */
@@ -143,8 +151,12 @@
         </div>
     </div>
 
-    <button id="sidebar-toggle">
+    <button id="sidebar-toggle" class="map-control-button">
         <i class="fa-solid fa-layer-group"></i>
+    </button>
+    
+    <button id="locate-me-btn" class="map-control-button">
+        <i class="fa-solid fa-crosshairs"></i>
     </button>
 
     <!-- Leaflet.js JavaScript -->
@@ -307,12 +319,21 @@
             });
         }
 
-        // --- SIDEBAR TOGGLE LOGIC ---
+        // --- UI CONTROLS LOGIC ---
         const sidebar = document.getElementById('sidebar');
         const toggleButton = document.getElementById('sidebar-toggle');
+        const locateMeBtn = document.getElementById('locate-me-btn');
 
         toggleButton.addEventListener('click', () => {
             sidebar.classList.toggle('open');
+        });
+
+        locateMeBtn.addEventListener('click', () => {
+            if (userLat !== null && userLng !== null) {
+                map.flyTo([userLat, userLng], 15); // 15 is a good "close-up" zoom level
+            } else {
+                alert("Could not determine your location. Please ensure location services are enabled for this site.");
+            }
         });
 
     </script>
