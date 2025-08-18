@@ -69,6 +69,21 @@
             border-bottom: 2px solid #f0f0f0;
             padding-bottom: 0.5rem;
         }
+        
+        /* Search Bar Styling */
+        #search-container {
+            padding: 1rem 1rem 1rem 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        #search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        
         #category-filter {
             list-style: none;
             padding: 0;
@@ -143,6 +158,9 @@
     <div id="map"></div>
 
     <div id="sidebar">
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search by keyword...">
+        </div>
         <div id="sidebar-content">
             <h2>Categories</h2>
             <ul id="category-filter">
@@ -221,39 +239,62 @@
         }
 
         // --- CSV DATA & PROCESSING ---
-        // This version is designed to fetch the external locations.csv file.
-        Papa.parse("locations.csv", {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            transformHeader: function(header) {
-                // Standardize headers to lowercase to prevent case-sensitivity issues
-                return header.toLowerCase();
-            },
-            complete: function(results) {
-                if (results.data && results.data.length > 0) {
-                    processData(results.data);
-                } else {
-                    console.error("Could not load or parse locations.csv. The file might be empty, not found, or formatted incorrectly.");
-                    alert("Error: Could not load location data. Please check the file and its headers.");
+        const sampleData = `Name,Latitude,Longitude,Category,Description
+Pinnacle Mountain,34.8415,-92.4799,Peaks,"A popular park for hiking with stunning views from the summit."
+Route 66 Marker,35.1054,-93.8423,Roadside,"A classic stop along the historic Mother Road."
+Old State House,34.7495,-92.2731,Historical Markers,"The oldest surviving state capitol west of the Mississippi River."
+Cedar Falls,35.0998,-92.7985,Waterfalls,"A beautiful 95-foot waterfall in Petit Jean State Park."
+Gone with the Wind Mill,34.7447,-92.2880,Film site,"The iconic mill from the opening credits of the classic film."
+Johnny Cash Boyhood Home,35.6033,-90.3409,Famous People,"The restored home where the Man in Black grew up."
+Buffalo National River,36.0465,-93.3649,Nature,"America's first National River, offering canoeing and hiking."
+The Crescent Hotel,36.4042,-93.7405,Haunted,"Known as America's Most Haunted Hotel."
+Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzzled people for decades."
+`;
+
+        function loadSampleData() {
+            console.warn("Using sample data as a fallback.");
+            Papa.parse(sampleData, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(sampleResults) {
+                    processData(sampleResults.data);
                 }
-            },
-            error: function(error) {
-                console.error("Critical error loading external CSV file:", error);
-                alert("Error: Failed to fetch the locations.csv file from the server.");
-            }
-        });
+            });
+        }
+
+        function loadExternalData() {
+             Papa.parse("locations.csv", {
+                download: true,
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                transformHeader: function(header) {
+                    return header.toLowerCase();
+                },
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        processData(results.data);
+                    } else {
+                        console.warn("External CSV was empty or invalid. Using fallback.");
+                        loadSampleData();
+                    }
+                },
+                error: function(error) {
+                    console.error("Error loading external CSV file:", error);
+                    loadSampleData();
+                }
+            });
+        }
 
         function processData(data) {
             const categories = new Set();
             data.forEach(location => {
-                // Use standardized lowercase headers
                 const placeName = location.name;
                 const lat = location.latitude;
                 const lon = location.longitude;
                 const cat = location.category;
-                const desc = location.description;
+                const desc = location.description || "";
 
                 if (cat) {
                     categories.add(cat);
@@ -263,6 +304,11 @@
                     const marker = L.marker([lat, lon], {
                         icon: getCategoryIcon(cat)
                     });
+
+                    marker.searchData = {
+                        name: placeName.toLowerCase(),
+                        description: desc.toLowerCase()
+                    };
 
                     let navLink = userLat && userLng
                         ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
@@ -284,13 +330,12 @@
             });
 
             populateFilterControls(categories);
-            // Don't call updateMapLayers() here, so the map starts empty
         }
 
         function populateFilterControls(categories) {
             const filterContainer = document.getElementById('category-filter');
-            filterContainer.innerHTML = ''; // Clear existing filters
-            const sortedCategories = Array.from(categories).sort(); // Sort categories alphabetically
+            filterContainer.innerHTML = '';
+            const sortedCategories = Array.from(categories).sort();
             sortedCategories.forEach(category => {
                 const item = document.createElement('li');
                 item.innerHTML = `
@@ -301,7 +346,7 @@
                 `;
                 filterContainer.appendChild(item);
             });
-            // Add event listeners after populating
+            
             document.querySelectorAll('#category-filter input').forEach(checkbox => {
                 checkbox.addEventListener('change', updateMapLayers);
             });
@@ -310,31 +355,44 @@
         function updateMapLayers() {
             markerClusterGroup.clearLayers();
             const checkedCategories = document.querySelectorAll('#category-filter input[type="checkbox"]:checked');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
             
             checkedCategories.forEach(checkbox => {
                 const category = checkbox.getAttribute('data-category');
                 if (allMarkers[category]) {
-                    markerClusterGroup.addLayers(allMarkers[category]);
+                    const filteredMarkers = allMarkers[category].filter(marker => {
+                        if (searchTerm.trim() === '') return true;
+                        return marker.searchData.name.includes(searchTerm) || marker.searchData.description.includes(searchTerm);
+                    });
+                    markerClusterGroup.addLayers(filteredMarkers);
                 }
             });
         }
 
-        // --- UI CONTROLS LOGIC ---
-        const sidebar = document.getElementById('sidebar');
-        const toggleButton = document.getElementById('sidebar-toggle');
-        const locateMeBtn = document.getElementById('locate-me-btn');
+        function initializeUI() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleButton = document.getElementById('sidebar-toggle');
+            const locateMeBtn = document.getElementById('locate-me-btn');
+            const searchInput = document.getElementById('search-input');
 
-        toggleButton.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-        });
+            toggleButton.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
 
-        locateMeBtn.addEventListener('click', () => {
-            if (userLat !== null && userLng !== null) {
-                map.flyTo([userLat, userLng], 15); // 15 is a good "close-up" zoom level
-            } else {
-                alert("Could not determine your location. Please ensure location services are enabled for this site.");
-            }
-        });
+            locateMeBtn.addEventListener('click', () => {
+                if (userLat !== null && userLng !== null) {
+                    map.flyTo([userLat, userLng], 15);
+                } else {
+                    alert("Could not determine your location.");
+                }
+            });
+
+            searchInput.addEventListener('keyup', updateMapLayers);
+        }
+
+        // --- INITIALIZE APP ---
+        initializeUI();
+        loadExternalData();
 
     </script>
 </body>
