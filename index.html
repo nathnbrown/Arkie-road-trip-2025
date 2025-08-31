@@ -140,10 +140,16 @@
 
         /* Custom popup styling */
         .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .leaflet-popup-content { margin: 15px; font-size: 14px; line-height: 1.6; }
+        .leaflet-popup-content { 
+            margin: 15px; 
+            font-size: 14px; 
+            line-height: 1.6; 
+            max-height: 200px; /* NEW: Set a max height */
+            overflow-y: auto;  /* NEW: Add a scrollbar if content overflows */
+        }
         .leaflet-popup-content h3 { margin: 0 0 10px; font-size: 16px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .leaflet-popup-content p { margin: 5px 0; }
-        .navigate-button { display: inline-block; margin-top: 10px; padding: 8px 12px; background-color: #007bff; color: #f0f0f0; text-align: center; text-decoration: none; border-radius: 5px; font-weight: 500; }
+        .navigate-button { display: inline-block; margin-top: 10px; padding: 8px 12px; background-color: #007bff; color: #ffffff; text-align: center; text-decoration: none; border-radius: 5px; font-weight: 500; }
 
         /* Custom DivIcon styling */
         .custom-div-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid white; }
@@ -188,6 +194,7 @@
     <script>
         let userLat = null;
         let userLng = null;
+        let allData = []; // Store all parsed data here
         const allMarkers = {}; // Object to hold markers, keyed by category
 
         // --- BASEMAPS ---
@@ -227,6 +234,8 @@
                 'Nature': { icon: 'fa-leaf', color: '#28a745' },
                 'Haunted': { icon: 'fa-ghost', color: '#6f42c1' },
                 'Legends': { icon: 'fa-dragon', color: '#dc3545' },
+                'History': { icon: 'fa-landmark', color: '#d9534f' },
+                'Interest': { icon: 'fa-map-pin', color: '#5bc0de' },
                 'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
             };
             const details = iconDetails[category] || iconDetails['Default'];
@@ -237,7 +246,7 @@
                 iconAnchor: [16, 16]
             });
         }
-
+        
         // --- CSV DATA & PROCESSING ---
         const sampleData = `Name,Latitude,Longitude,Category,Description
 Pinnacle Mountain,34.8415,-92.4799,Peaks,"A popular park for hiking with stunning views from the summit."
@@ -288,48 +297,17 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
         }
 
         function processData(data) {
+            allData = data; // Store the full dataset
             const categories = new Set();
-            data.forEach(location => {
-                const placeName = location.name;
-                const lat = location.latitude;
-                const lon = location.longitude;
-                const cat = location.category;
-                const desc = location.description || "";
-
-                if (cat) {
-                    categories.add(cat);
-                }
-                
-                if (lat && lon && placeName) {
-                    const marker = L.marker([lat, lon], {
-                        icon: getCategoryIcon(cat)
-                    });
-
-                    marker.searchData = {
-                        name: placeName.toLowerCase(),
-                        description: desc.toLowerCase()
-                    };
-
-                    let navLink = userLat && userLng
-                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
-                        : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                    
-                    const popupContent = `
-                        <h3>${placeName}</h3>
-                        <p><strong>Category:</strong> ${cat}</p>
-                        <p>${desc}</p>
-                        <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
-                    `;
-                    marker.bindPopup(popupContent);
-
-                    if (!allMarkers[cat]) {
-                        allMarkers[cat] = [];
-                    }
-                    allMarkers[cat].push(marker);
+            
+            allData.forEach(location => {
+                if (location.category) {
+                    categories.add(location.category);
                 }
             });
-
+            
             populateFilterControls(categories);
+            // No need to create markers here initially
         }
 
         function populateFilterControls(categories) {
@@ -354,19 +332,42 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
 
         function updateMapLayers() {
             markerClusterGroup.clearLayers();
-            const checkedCategories = document.querySelectorAll('#category-filter input[type="checkbox"]:checked');
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const checkedCategories = Array.from(document.querySelectorAll('#category-filter input:checked')).map(cb => cb.dataset.category);
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
             
-            checkedCategories.forEach(checkbox => {
-                const category = checkbox.getAttribute('data-category');
-                if (allMarkers[category]) {
-                    const filteredMarkers = allMarkers[category].filter(marker => {
-                        if (searchTerm.trim() === '') return true;
-                        return marker.searchData.name.includes(searchTerm) || marker.searchData.description.includes(searchTerm);
-                    });
-                    markerClusterGroup.addLayers(filteredMarkers);
-                }
+            const filteredData = allData.filter(location => {
+                const categoryMatch = checkedCategories.length === 0 || checkedCategories.includes(location.category);
+                
+                if (!categoryMatch) return false;
+
+                if (searchTerm === '') return true;
+
+                const nameMatch = location.name && location.name.toLowerCase().includes(searchTerm);
+                const descMatch = location.description && location.description.toLowerCase().includes(searchTerm);
+                
+                return nameMatch || descMatch;
             });
+            
+            const markersToAdd = filteredData.map(location => {
+                const marker = L.marker([location.latitude, location.longitude], {
+                    icon: getCategoryIcon(location.category)
+                });
+                
+                let navLink = userLat && userLng
+                    ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${location.latitude},${location.longitude}`
+                    : `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`;
+
+                const popupContent = `
+                    <h3>${location.name}</h3>
+                    <p><strong>Category:</strong> ${location.category}</p>
+                    <p>${location.description || ""}</p>
+                    <a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>
+                `;
+                marker.bindPopup(popupContent);
+                return marker;
+            });
+
+            markerClusterGroup.addLayers(markersToAdd);
         }
 
         function initializeUI() {
@@ -387,7 +388,7 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
                 }
             });
 
-            searchInput.addEventListener('keyup', updateMapLayers);
+            searchInput.addEventListener('input', updateMapLayers); // Use 'input' for real-time filtering
         }
 
         // --- INITIALIZE APP ---
