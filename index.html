@@ -357,32 +357,43 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
 
         function processData(data) {
             const categories = new Set();
-            data.forEach(location => {
-                const name = location.name;
-                const lat = location.latitude;
-                const lon = location.longitude;
-                const cat = location.category;
-                const desc = location.description || "";
+            data.forEach((location, index) => {
+                try {
+                    const name = location.name;
+                    const lat = location.latitude;
+                    const lon = location.longitude;
+                    const cat = location.category;
+                    const desc = location.description || "";
 
-                if (cat) categories.add(cat);
-                
-                if (lat && lon && name && cat) {
-                    const marker = L.marker([lat, lon], { icon: getCategoryIcon(cat) });
+                    if (cat) {
+                        categories.add(cat);
+                    }
                     
-                    marker.searchData = {
-                        name: name.toLowerCase(),
-                        description: desc.toLowerCase()
-                    };
-                    
-                    let navLink = userLat && userLng
-                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
-                        : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                    
-                    const popupContent = `<h3>${name}</h3><p><strong>Category:</strong> ${cat}</p><p>${desc}</p><a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>`;
-                    marker.bindPopup(popupContent);
+                    // More robust check for valid data before creating a marker
+                    if (name && cat && lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+                        const marker = L.marker([lat, lon], { icon: getCategoryIcon(cat) });
+                        
+                        marker.searchData = {
+                            name: String(name).toLowerCase(),
+                            description: String(desc).toLowerCase()
+                        };
+                        
+                        let navLink = userLat && userLng
+                            ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
+                            : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+                        
+                        const popupContent = `<h3>${name}</h3><p><strong>Category:</strong> ${cat}</p><p>${desc}</p><a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>`;
+                        marker.bindPopup(popupContent);
 
-                    if (!allMarkers[cat]) allMarkers[cat] = [];
-                    allMarkers[cat].push(marker);
+                        if (!allMarkers[cat]) {
+                            allMarkers[cat] = [];
+                        }
+                        allMarkers[cat].push(marker);
+                    } else if (name || cat) { // Only log a warning if the row seems like it should have data
+                        console.warn(`Skipping invalid or incomplete row ${index + 2} in CSV: `, location);
+                    }
+                } catch (e) {
+                    console.error(`Error processing row ${index + 2} in CSV: `, location, e);
                 }
             });
             populateFilterControls(categories);
