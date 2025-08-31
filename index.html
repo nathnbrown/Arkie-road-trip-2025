@@ -464,6 +464,12 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
 
             toggleButton.addEventListener('click', () => sidebar.classList.toggle('open'));
 
+            map.on('click', () => {
+                if (sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                }
+            });
+
             locateMeBtn.addEventListener('click', () => {
                 if (userLat !== null && userLng !== null) map.flyTo([userLat, userLng], 15);
                 else alert("Could not determine your location.");
@@ -528,5 +534,4 @@ Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzz
     </script>
 </body>
 </html>
-
 
