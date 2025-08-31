@@ -287,7 +287,9 @@
         // --- MAP INITIALIZATION ---
         const map = L.map('map', { layers: [streets] }).setView([34.7465, -92.2896], 13);
         L.control.layers(baseMaps).addTo(map);
-        const markerClusterGroup = L.markerClusterGroup();
+        const markerClusterGroup = L.markerClusterGroup({
+            disableClusteringAtZoom: 14 // Icons will de-aggregate at zoom level 14 and higher
+        });
         map.addLayer(markerClusterGroup);
 
         // --- GEOLOCATION ---
