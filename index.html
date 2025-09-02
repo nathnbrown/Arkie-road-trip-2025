@@ -275,12 +275,13 @@
         let userLat = null;
         let userLng = null;
         const allMarkers = {}; // Object to hold arrays of L.marker objects, keyed by category
+        const allRoutes = {}; // Object to hold arrays of L.polyline objects for routes
 
         // --- BASEMAPS ---
         const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
         const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap' });
         const waterways = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 16, /* Corrected max zoom level for this service */
+            maxZoom: 16,
             attribution: 'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>'
         });
         const hiking = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
@@ -294,9 +295,11 @@
         const map = L.map('map', { layers: [streets] }).setView([34.7465, -92.2896], 13);
         L.control.layers(baseMaps).addTo(map);
         const markerClusterGroup = L.markerClusterGroup({
-            disableClusteringAtZoom: 14 // Icons will de-aggregate at zoom level 14 and higher
+            disableClusteringAtZoom: 14
         });
+        const routeLayerGroup = L.layerGroup();
         map.addLayer(markerClusterGroup);
+        map.addLayer(routeLayerGroup);
 
         // --- GEOLOCATION ---
         if (navigator.geolocation) {
@@ -311,27 +314,34 @@
             );
         }
 
-        // --- ICONS ---
+        // --- ICONS & COLORS ---
+        const categoryStyles = {
+            'Peaks': { icon: 'fa-mountain-sun', color: '#8B4513' },
+            'Roadside': { icon: 'fa-road', color: '#6c757d' },
+            'Historical Markers': { icon: 'fa-monument', color: '#8b572a' },
+            'Waterfalls': { icon: 'fa-water', color: '#17a2b8' },
+            'Film site': { icon: 'fa-film', color: '#343a40' },
+            'Famous People': { icon: 'fa-star', color: '#ffc107' },
+            'Nature': { icon: 'fa-leaf', color: '#28a745' },
+            'Haunted': { icon: 'fa-ghost', color: '#6f42c1' },
+            'Legends': { icon: 'fa-dragon', color: '#dc3545' },
+            'History': { icon: 'fa-landmark', color: '#d9534f' },
+            'Interest': { icon: 'fa-map-pin', color: '#5bc0de' },
+            'Caves': { icon: 'fa-person-shelter', color: '#a52a2a'},
+            'State Parks': { icon: 'fa-tree', color: '#1e8449' },
+            'Scenic Route': { color: '#fd7e14' }, // Color for scenic routes
+            'Historic Trail': { color: '#d63384' }, // Color for historic trails
+            'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
+        };
+
+        function getCategoryStyle(category) {
+            return categoryStyles[category] || categoryStyles['Default'];
+        }
+
         function getCategoryIcon(category) {
-            const iconDetails = {
-                'Peaks': { icon: 'fa-mountain-sun', color: '#8B4513' },
-                'Roadside': { icon: 'fa-road', color: '#6c757d' },
-                'Historical Markers': { icon: 'fa-monument', color: '#8b572a' },
-                'Waterfalls': { icon: 'fa-water', color: '#17a2b8' },
-                'Film site': { icon: 'fa-film', color: '#343a40' },
-                'Famous People': { icon: 'fa-star', color: '#ffc107' },
-                'Nature': { icon: 'fa-leaf', color: '#28a745' },
-                'Haunted': { icon: 'fa-ghost', color: '#6f42c1' },
-                'Legends': { icon: 'fa-dragon', color: '#dc3545' },
-                'History': { icon: 'fa-landmark', color: '#d9534f' },
-                'Interest': { icon: 'fa-map-pin', color: '#5bc0de' },
-                'Caves': { icon: 'fa-person-shelter', color: '#a52a2a'},
-                'State Parks': { icon: 'fa-tree', color: '#1e8449' },
-                'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
-            };
-            const details = iconDetails[category] || iconDetails['Default'];
+            const style = getCategoryStyle(category);
             return L.divIcon({
-                html: `<div class="custom-div-icon" style="background-color:${details.color};"><i class="fa-solid ${details.icon}"></i></div>`,
+                html: `<div class="custom-div-icon" style="background-color:${style.color};"><i class="fa-solid ${style.icon}"></i></div>`,
                 className: '',
                 iconSize: [32, 32],
                 iconAnchor: [16, 16]
@@ -339,121 +349,105 @@
         }
         
         // --- CSV DATA & PROCESSING ---
-        const sampleData = `Name,Latitude,Longitude,Category,Description
+        const allCategories = new Set();
+        
+        const sampleLocationsData = `Name,Latitude,Longitude,Category,Description
 Pinnacle Mountain,34.8415,-92.4799,Peaks,"A popular park for hiking with stunning views from the summit."
-Route 66 Marker,35.1054,-93.8423,Roadside,"A classic stop along the historic Mother Road."
-Old State House,34.7495,-92.2731,Historical Markers,"The oldest surviving state capitol west of the Mississippi River."
-Cedar Falls,35.0998,-92.7985,Waterfalls,"A beautiful 95-foot waterfall in Petit Jean State Park."
-Gone with the Wind Mill,34.7447,-92.2880,Film site,"The iconic mill from the opening credits of the classic film."
-Johnny Cash Boyhood Home,35.6033,-90.3409,Famous People,"The restored home where the Man in Black grew up."
-Buffalo National River,36.0465,-93.3649,Nature,"America's first National River, offering canoeing and hiking."
-The Crescent Hotel,36.4042,-93.7405,Haunted,"Known as America's Most Haunted Hotel."
-Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzzled people for decades."
-Mount Nebo State Park,35.2237,-93.2519,State Parks,"One of Arkansas's first state parks, known for its incredible views."
+`;
+        const sampleRoutesData = `Name,Category,Description,Coordinates
+Sample Scenic Drive,Scenic Route,"A beautiful drive to demonstrate the routes feature.","34.78,-92.58;34.85,-92.45;34.90,-92.30"
 `;
 
-        function loadSampleData() {
-            console.warn("Using sample data as a fallback.");
-            Papa.parse(sampleData, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(sampleResults) {
-                    processData(sampleResults.data);
-                }
-            });
-        }
-
-        function loadExternalData() {
-             Papa.parse("locations.csv", {
+        function loadData(file, processor, fallbackData) {
+            Papa.parse(file, {
                 download: true,
                 header: true,
                 dynamicTyping: true,
                 skipEmptyLines: true,
-                transformHeader: function(header) {
-                    return header.toLowerCase();
-                },
-                complete: function(results) {
+                transformHeader: h => h.toLowerCase(),
+                complete: (results) => {
                     if (results.data && results.data.length > 0) {
-                        processData(results.data);
+                        processor(results.data);
                     } else {
-                        console.warn("External CSV was empty or invalid. Using fallback.");
-                        loadSampleData();
+                         console.warn(`File ${file} was empty. Using fallback if available.`);
+                         if(fallbackData) processor(fallbackData);
                     }
                 },
-                error: function(error) {
-                    console.error("Error loading external CSV file:", error);
-                    loadSampleData();
+                error: (error) => {
+                    console.error(`Error loading ${file}:`, error);
+                    if(fallbackData) processor(fallbackData);
                 }
             });
         }
 
-        function processData(data) {
-            const categories = new Set();
+        function processLocationData(data) {
             data.forEach((location, index) => {
                 try {
-                    const name = location.name;
-                    const lat = location.latitude;
-                    const lon = location.longitude;
-                    const cat = location.category;
-                    const desc = location.description || "";
-
-                    if (cat) {
-                        categories.add(cat);
-                    }
+                    const { name, latitude: lat, longitude: lon, category: cat, description: desc = "" } = location;
+                    if (cat) allCategories.add(cat);
                     
-                    // More robust check for valid data before creating a marker
                     if (name && cat && lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
                         const marker = L.marker([lat, lon], { icon: getCategoryIcon(cat) });
+                        marker.searchData = { name: String(name).toLowerCase(), description: String(desc).toLowerCase() };
                         
-                        marker.searchData = {
-                            name: String(name).toLowerCase(),
-                            description: String(desc).toLowerCase()
-                        };
-                        
-                        let navLink = userLat && userLng
-                            ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}`
-                            // The popup will render basic HTML, including links
-                            : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                        
-                        const popupContent = `<h3>${name}</h3><p><strong>Category:</strong> ${cat}</p><p>${desc}</p><a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>`;
-                        marker.bindPopup(popupContent);
+                        let navLink = userLat && userLng ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lon}` : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+                        marker.bindPopup(`<h3>${name}</h3><p><strong>Category:</strong> ${cat}</p><p>${desc}</p><a href="${navLink}" target="_blank" class="navigate-button">Navigate There</a>`);
 
-                        if (!allMarkers[cat]) {
-                            allMarkers[cat] = [];
-                        }
+                        if (!allMarkers[cat]) allMarkers[cat] = [];
                         allMarkers[cat].push(marker);
-                    } else if (name || cat) { // Only log a warning if the row seems like it should have data
-                        console.warn(`Skipping invalid or incomplete row ${index + 2} in CSV: `, location);
                     }
-                } catch (e) {
-                    console.error(`Error processing row ${index + 2} in CSV: `, location, e);
-                }
+                } catch (e) { console.error(`Error processing location row ${index + 2}:`, location, e); }
             });
-            populateFilterControls(categories);
+            populateFilterControls();
         }
 
-        function populateFilterControls(categories) {
+        function processRouteData(data) {
+            data.forEach((route, index) => {
+                try {
+                    const { name, category: cat, description: desc = "", coordinates } = route;
+                    if (cat) allCategories.add(cat);
+
+                    if (name && cat && coordinates) {
+                        const latlngs = coordinates.split(';').map(coord => {
+                            const [lat, lng] = coord.split(',');
+                            return [parseFloat(lat), parseFloat(lng)];
+                        }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+
+                        if (latlngs.length < 2) return;
+
+                        const style = getCategoryStyle(cat);
+                        const polyline = L.polyline(latlngs, { color: style.color || '#3388ff', weight: 5 });
+                        polyline.searchData = { name: String(name).toLowerCase(), description: String(desc).toLowerCase() };
+                        polyline.bindPopup(`<h3>${name}</h3><p><strong>Category:</strong> ${cat}</p><p>${desc}</p>`);
+
+                        if (!allRoutes[cat]) allRoutes[cat] = [];
+                        allRoutes[cat].push(polyline);
+                    }
+                } catch (e) { console.error(`Error processing route row ${index + 2}:`, route, e); }
+            });
+            populateFilterControls();
+        }
+
+        function populateFilterControls() {
             const filterContainer = document.getElementById('category-filter');
             filterContainer.innerHTML = '';
-            const sortedCategories = Array.from(categories).sort();
-            sortedCategories.forEach(category => {
+            Array.from(allCategories).sort().forEach(category => {
                 const item = document.createElement('li');
                 item.innerHTML = `<label><input type="checkbox" data-category="${category}">${category}</label>`;
                 filterContainer.appendChild(item);
             });
             
-            document.querySelectorAll('#category-filter input').forEach(checkbox => {
-                checkbox.addEventListener('change', updateMapLayers);
-            });
+            document.querySelectorAll('#category-filter input').forEach(checkbox => checkbox.addEventListener('change', updateMapLayers));
         }
 
         function updateMapLayers() {
             markerClusterGroup.clearLayers();
+            routeLayerGroup.clearLayers();
             const checkedCategories = Array.from(document.querySelectorAll('#category-filter input:checked')).map(cb => cb.dataset.category);
             const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
             
             checkedCategories.forEach(category => {
+                // Add matching points
                 if (allMarkers[category]) {
                     const markersToAdd = allMarkers[category].filter(marker => {
                         if (searchTerm === '') return true;
@@ -461,10 +455,29 @@ Mount Nebo State Park,35.2237,-93.2519,State Parks,"One of Arkansas's first stat
                     });
                     markerClusterGroup.addLayers(markersToAdd);
                 }
+                // Add matching routes
+                if (allRoutes[category]) {
+                    const routesToAdd = allRoutes[category].filter(route => {
+                        if (searchTerm === '') return true;
+                        return route.searchData.name.includes(searchTerm) || route.searchData.description.includes(searchTerm);
+                    });
+                    routesToAdd.forEach(route => routeLayerGroup.addLayer(route));
+                }
             });
         }
+        
+        function initializeApp() {
+            // Load sample data first to ensure categories are populated even if external files fail
+            const sampleLocations = Papa.parse(sampleLocationsData, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+            const sampleRoutes = Papa.parse(sampleRoutesData, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+            processLocationData(sampleLocations);
+            processRouteData(sampleRoutes);
 
-        function initializeUI() {
+            // Then, load external data which will add to the categories and markers/routes
+            loadData("locations.csv", processLocationData);
+            loadData("routes.csv", processRouteData);
+            
+            // UI Initialization
             const sidebar = document.getElementById('sidebar');
             const toggleButton = document.getElementById('sidebar-toggle');
             const locateMeBtn = document.getElementById('locate-me-btn');
@@ -474,23 +487,13 @@ Mount Nebo State Park,35.2237,-93.2519,State Parks,"One of Arkansas's first stat
             const randomBtn = document.getElementById('random-location-btn');
 
             toggleButton.addEventListener('click', () => sidebar.classList.toggle('open'));
-
-            map.on('click', () => {
-                if (sidebar.classList.contains('open')) {
-                    sidebar.classList.remove('open');
-                }
-            });
-
-            locateMeBtn.addEventListener('click', () => {
-                if (userLat !== null && userLng !== null) map.flyTo([userLat, userLng], 15);
-                else alert("Could not determine your location.");
-            });
-
+            map.on('click', () => { if (sidebar.classList.contains('open')) sidebar.classList.remove('open'); });
+            locateMeBtn.addEventListener('click', () => { if (userLat && userLng) map.flyTo([userLat, userLng], 15); else alert("Could not determine your location."); });
+            
             searchInput.addEventListener('input', () => {
                 updateMapLayers();
                 clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
             });
-
             clearSearchBtn.addEventListener('click', () => {
                 searchInput.value = '';
                 clearSearchBtn.style.display = 'none';
@@ -509,39 +512,31 @@ Mount Nebo State Park,35.2237,-93.2519,State Parks,"One of Arkansas's first stat
             randomBtn.addEventListener('click', () => {
                 const checkedCategories = Array.from(document.querySelectorAll('#category-filter input:checked')).map(cb => cb.dataset.category);
                 const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
-                
-                let eligibleMarkers = [];
-                let categoriesToSearch = checkedCategories.length > 0 ? checkedCategories : Object.keys(allMarkers);
+                let eligibleItems = [];
+                let categoriesToSearch = checkedCategories.length > 0 ? checkedCategories : Array.from(allCategories);
                 
                 categoriesToSearch.forEach(category => {
-                    if (allMarkers[category]) {
-                        const filtered = allMarkers[category].filter(marker => {
-                             if (searchTerm === '') return true;
-                             return marker.searchData.name.includes(searchTerm) || marker.searchData.description.includes(searchTerm);
-                        });
-                        eligibleMarkers.push(...filtered);
-                    }
+                    const markers = (allMarkers[category] || []).filter(m => searchTerm === '' || m.searchData.name.includes(searchTerm) || m.searchData.description.includes(searchTerm));
+                    const routes = (allRoutes[category] || []).filter(r => searchTerm === '' || r.searchData.name.includes(searchTerm) || r.searchData.description.includes(searchTerm));
+                    eligibleItems.push(...markers, ...routes);
                 });
 
-                if (eligibleMarkers.length === 0) {
-                    alert("No locations match your current filters.");
-                    return;
+                if (eligibleItems.length === 0) return alert("No locations match your current filters.");
+                
+                const randomItem = eligibleItems[Math.floor(Math.random() * eligibleItems.length)];
+                map.closePopup();
+                
+                if (randomItem instanceof L.Marker) {
+                    markerClusterGroup.zoomToShowLayer(randomItem, () => randomItem.openPopup());
+                } else if (randomItem instanceof L.Polyline) {
+                    map.flyToBounds(randomItem.getBounds(), {padding: [50, 50]});
+                    randomItem.openPopup();
                 }
-                
-                const randomMarker = eligibleMarkers[Math.floor(Math.random() * eligibleMarkers.length)];
-                
-                map.closePopup(); // Close any open popups
-                
-                markerClusterGroup.zoomToShowLayer(randomMarker, () => {
-                    randomMarker.openPopup();
-                });
             });
         }
 
-        // --- INITIALIZE APP ---
-        initializeUI();
-        loadExternalData();
-
+        // --- START APP ---
+        initializeApp();
     </script>
 </body>
 </html>
