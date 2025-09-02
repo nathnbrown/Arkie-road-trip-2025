@@ -208,13 +208,19 @@
             margin-top: 10px; 
             padding: 8px 12px; 
             background-color: #007bff; 
-            color: #ffffff; /* White text */
+            color: #ffffff !important; /* White text, !important to override Leaflet default */
             text-shadow: 0 1px 2px rgba(0,0,0,0.5); /* Adds a subtle shadow to make text pop */
             text-align: center; 
             text-decoration: none; 
             border-radius: 5px; 
             font-weight: 500; 
         }
+
+        /* More specific rule to override default link color */
+        .leaflet-popup-content a.navigate-button, .leaflet-popup-content a.navigate-button:visited {
+             color: #ffffff !important;
+        }
+
 
         /* Custom DivIcon styling */
         .custom-div-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid white; }
@@ -319,6 +325,8 @@
                 'Legends': { icon: 'fa-dragon', color: '#dc3545' },
                 'History': { icon: 'fa-landmark', color: '#d9534f' },
                 'Interest': { icon: 'fa-map-pin', color: '#5bc0de' },
+                'Caves': { icon: 'fa-person-shelter', color: '#a52a2a'},
+                'State Parks': { icon: 'fa-tree', color: '#1e8449' },
                 'Default': { icon: 'fa-location-dot', color: '#4a4a4a' }
             };
             const details = iconDetails[category] || iconDetails['Default'];
@@ -341,6 +349,7 @@ Johnny Cash Boyhood Home,35.6033,-90.3409,Famous People,"The restored home where
 Buffalo National River,36.0465,-93.3649,Nature,"America's first National River, offering canoeing and hiking."
 The Crescent Hotel,36.4042,-93.7405,Haunted,"Known as America's Most Haunted Hotel."
 Gurdon Light,33.9218,-93.1532,Legends,"A mysterious floating light that has puzzled people for decades."
+Mount Nebo State Park,35.2237,-93.2519,State Parks,"One of Arkansas's first state parks, known for its incredible views."
 `;
 
         function loadSampleData() {
